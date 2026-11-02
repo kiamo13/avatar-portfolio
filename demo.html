@@ -10,30 +10,28 @@
 *{box-sizing:border-box}
 html,body{width:100%;height:100%;margin:0}
 body{display:grid;place-items:center;background:var(--bg);overflow:hidden}
-.avatar-stage{width:min(76vw,560px);height:min(88vh,680px);display:grid;place-items:center;cursor:pointer;outline:none;touch-action:pan-y}
+.avatar-stage{width:min(90vw,720px);height:min(94vh,820px);display:grid;place-items:center;cursor:pointer;outline:none;touch-action:pan-y}
 svg{display:block;width:100%;height:100%;overflow:visible}
-#CRÁNEO{opacity:0;transition:opacity .48s ease}
-#cara_ojos_abiertos_neutro_copia{opacity:0;pointer-events:none}
+#CRÁNEO{opacity:0;pointer-events:none;transition:opacity .22s ease}
+#cara_ojos_abiertos_neutro_copia{display:none}
 #ojos_sonrientes{opacity:0;pointer-events:none}
-#cara_ojos_abiertos_neutro,#ojos_sonrientes,#cara_ojos_abiertos_neutro_copia{transition:opacity .18s ease}
+#cara_ojos_abiertos_neutro,#ojos_sonrientes{transition:opacity .18s ease}
 .avatar-stage.is-smiling #cara_ojos_abiertos_neutro{opacity:0}
 .avatar-stage.is-smiling #ojos_sonrientes{opacity:1}
 .avatar-stage.is-hovering #CRÁNEO{opacity:1}
-.avatar-stage.is-hovering #cara_ojos_abiertos_neutro,
-.avatar-stage.is-hovering #ojos_sonrientes{opacity:.76}
-.avatar-stage.is-hovering #BARBA{opacity:.9}
-.avatar-stage.is-blinking #cara_ojos_abiertos_neutro,
-.avatar-stage.is-blinking #ojos_sonrientes{opacity:0!important}
-.avatar-stage.is-blinking #cara_ojos_abiertos_neutro_copia{opacity:1!important}
-#pupila_1,#pupila_2{transform-box:view-box;transform-origin:center;transition:transform .08s linear}
-#brillito{pointer-events:none}
-@media(max-width:600px){.avatar-stage{width:min(88vw,460px);height:78vh}}
+#pupila_1,#pupila_2{transform-box:fill-box;transform-origin:center;will-change:transform}
+#ojos{transform-box:fill-box;transform-origin:center}
+#brillito{pointer-events:none;transform-box:fill-box;transform-origin:center}
+.avatar-stage.is-blinking #ojos,
+.avatar-stage.is-blinking #pupila_1,
+.avatar-stage.is-blinking #pupila_2,
+.avatar-stage.is-blinking #brillito{transform:scaleY(.06);transition:transform .075s ease-in}
+@media(max-width:600px){.avatar-stage{width:94vw;height:88vh}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{transition-duration:.01ms!important;animation-duration:.01ms!important;animation-iteration-count:1!important}}
 </style>
 </head>
 <body>
 <main class="avatar-stage" id="avatar" role="button" tabindex="0" aria-label="Avatar interactivo. Haz clic para cambiar la expresión.">
-<?xml version="1.0" encoding="utf-8"?>
 <!-- Generator: Adobe Illustrator 30.8.2, SVG Export Plug-In . SVG Version: 9.03 Build 0)  -->
 <svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
 	 viewBox="0 0 630.979 739.979" style="enable-background:new 0 0 630.979 739.979;" xml:space="preserve">
@@ -645,39 +643,86 @@ svg{display:block;width:100%;height:100%;overflow:visible}
 (()=>{
  const stage=document.getElementById('avatar');
  const svg=stage.querySelector('svg');
- const p1=svg.querySelector('#pupila_1'),p2=svg.querySelector('#pupila_2');
- const blinkFace=svg.querySelector('#cara_ojos_abiertos_neutro_copia');
+ const skull=svg.querySelector('#CRÁNEO');
+ const eyes=svg.querySelector('#ojos');
+ const pupils=[svg.querySelector('#pupila_1'),svg.querySelector('#pupila_2')];
+ const highlights=svg.querySelector('#brillito');
  const neutralFace=svg.querySelector('#cara_ojos_abiertos_neutro');
  const smileFace=svg.querySelector('#ojos_sonrientes');
  const reduce=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
- let smiling=false,blinkTimer=0,blinkEnd=0;
+ let smiling=false,blinkTimer=0,blinkEnd=0,raf=0;
  const clamp=(v,min,max)=>Math.max(min,Math.min(max,v));
- function toggleSmile(){smiling=!smiling;stage.classList.toggle('is-smiling',smiling);stage.setAttribute('aria-label',smiling?'Avatar sonriente. Haz clic para volver a la expresión neutra.':'Avatar neutro. Haz clic para sonreír.')}
+ const originalSkullParent=skull.parentNode;
+ const originalSkullNext=skull.nextSibling;
+
+ function toggleSmile(){
+   smiling=!smiling;
+   stage.classList.toggle('is-smiling',smiling);
+   stage.setAttribute('aria-label',smiling?'Avatar sonriente. Haz clic para volver a la expresión neutra.':'Avatar neutro. Haz clic para sonreír.');
+ }
  stage.addEventListener('click',toggleSmile);
- stage.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();toggleSmile()}});
- stage.addEventListener('pointerenter',()=>stage.classList.add('is-hovering'));
- stage.addEventListener('pointerleave',()=>stage.classList.remove('is-hovering'));
- stage.addEventListener('pointermove',e=>{
-   if(!svg.getScreenCTM())return;
-   const pt=svg.createSVGPoint();pt.x=e.clientX;pt.y=e.clientY;
-   const q=pt.matrixTransform(svg.getScreenCTM().inverse());
-   const dx=clamp((q.x-315)/315,-1,1)*7;
-   const dy=clamp((q.y-370)/370,-1,1)*5;
-   p1.setAttribute('transform','translate('+dx.toFixed(2)+' '+dy.toFixed(2)+')');
-   p2.setAttribute('transform','translate('+dx.toFixed(2)+' '+dy.toFixed(2)+')');
+ stage.addEventListener('keydown',e=>{
+   if(e.key==='Enter'||e.key===' '){e.preventDefault();toggleSmile()}
  });
- stage.addEventListener('pointerleave',()=>{p1.removeAttribute('transform');p2.removeAttribute('transform')});
- function scheduleBlink(){if(reduce)return;blinkTimer=window.setTimeout(()=>{
-   if(!stage.isConnected)return;
-   // La variante duplicada del SVG se usa como párpado cerrado.
-   stage.classList.add('is-blinking');
-   blinkEnd=window.setTimeout(()=>{
-     stage.classList.remove('is-blinking');
-     scheduleBlink();
-   },125);
- },2500+Math.random()*3500)}
+
+ stage.addEventListener('pointerenter',()=>{
+   stage.classList.add('is-hovering');
+   // El cráneo pasa al frente: no queda tapado por la cara ni por la barba.
+   svg.appendChild(skull);
+ });
+ stage.addEventListener('pointerleave',()=>{
+   stage.classList.remove('is-hovering');
+   // Restituye el orden original de las capas del SVG.
+   if(originalSkullNext && originalSkullNext.parentNode===originalSkullParent){
+     originalSkullParent.insertBefore(skull,originalSkullNext);
+   }else{
+     originalSkullParent.insertBefore(skull,originalSkullParent.firstChild);
+   }
+   pupils.forEach(p=>p.removeAttribute('transform'));
+   if(raf)cancelAnimationFrame(raf);
+ });
+
+ let target=[{x:0,y:0},{x:0,y:0}],current=[{x:0,y:0},{x:0,y:0}];
+ function renderPupils(){
+   raf=0;
+   current=current.map((p,i)=>({
+     x:p.x+(target[i].x-p.x)*.22,
+     y:p.y+(target[i].y-p.y)*.22
+   }));
+   pupils.forEach((p,i)=>p.setAttribute('transform','translate('+current[i].x.toFixed(2)+' '+current[i].y.toFixed(2)+')'));
+   if(current.some((p,i)=>Math.abs(p.x-target[i].x)>.08||Math.abs(p.y-target[i].y)>.08)){
+     raf=requestAnimationFrame(renderPupils);
+   }
+ }
+ stage.addEventListener('pointermove',e=>{
+   const matrix=svg.getScreenCTM();
+   if(!matrix)return;
+   const pt=svg.createSVGPoint();
+   pt.x=e.clientX;pt.y=e.clientY;
+   const q=pt.matrixTransform(matrix.inverse());
+   const centers=[{x:228.843,y:391.657},{x:420.889,y:391.657}];
+   target=centers.map(c=>({
+     x:clamp((q.x-c.x)/180*11,-11,11),
+     y:clamp((q.y-c.y)/150*9,-9,9)
+   }));
+   if(!raf)raf=requestAnimationFrame(renderPupils);
+ });
+
+ function scheduleBlink(){
+   if(reduce)return;
+   blinkTimer=window.setTimeout(()=>{
+     stage.classList.add('is-blinking');
+     blinkEnd=window.setTimeout(()=>{
+       stage.classList.remove('is-blinking');
+       scheduleBlink();
+     },145);
+   },2600+Math.random()*2600);
+ }
  scheduleBlink();
- window.addEventListener('pagehide',()=>{clearTimeout(blinkTimer);clearTimeout(blinkEnd)});
+ window.addEventListener('pagehide',()=>{
+   clearTimeout(blinkTimer);clearTimeout(blinkEnd);
+   if(raf)cancelAnimationFrame(raf);
+ });
 })();
 </script>
 </body>
