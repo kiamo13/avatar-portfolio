@@ -19,9 +19,9 @@ svg{display:block;width:100%;height:100%;overflow:visible}
 .avatar-stage.is-smiling #cara_ojos_abiertos_neutro{opacity:0}
 .avatar-stage.is-smiling #ojos_sonrientes{opacity:1}
 .avatar-stage.is-hovering #CRÁNEO{opacity:1}
-#pupila_1,#pupila_2{transform-box:fill-box;transform-origin:center;will-change:transform}
-#ojos{transform-box:fill-box;transform-origin:center}
-#brillito{pointer-events:none;transform-box:fill-box;transform-origin:center}
+#pupila_1,#pupila_2{transform-box:fill-box;transform-origin:center;will-change:transform;transition:transform .075s ease-out}
+#ojos{transform-box:fill-box;transform-origin:center;transition:transform .075s ease-out}
+#brillito{pointer-events:none;transform-box:fill-box;transform-origin:center;transition:transform .075s ease-out}
 .avatar-stage.is-blinking #ojos,
 .avatar-stage.is-blinking #pupila_1,
 .avatar-stage.is-blinking #pupila_2,
@@ -680,6 +680,9 @@ svg{display:block;width:100%;height:100%;overflow:visible}
    }
    pupils.forEach(p=>p.removeAttribute('transform'));
    if(raf)cancelAnimationFrame(raf);
+   raf=0;
+   target=[{x:0,y:0},{x:0,y:0}];
+   current=[{x:0,y:0},{x:0,y:0}];
  });
 
  let target=[{x:0,y:0},{x:0,y:0}],current=[{x:0,y:0},{x:0,y:0}];
