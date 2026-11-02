@@ -22,6 +22,9 @@ svg{display:block;width:100%;height:100%;overflow:visible}
 .avatar-stage.is-hovering #cara_ojos_abiertos_neutro,
 .avatar-stage.is-hovering #ojos_sonrientes{opacity:.76}
 .avatar-stage.is-hovering #BARBA{opacity:.9}
+.avatar-stage.is-blinking #cara_ojos_abiertos_neutro,
+.avatar-stage.is-blinking #ojos_sonrientes{opacity:0!important}
+.avatar-stage.is-blinking #cara_ojos_abiertos_neutro_copia{opacity:1!important}
 #pupila_1,#pupila_2{transform-box:view-box;transform-origin:center;transition:transform .08s linear}
 #brillito{pointer-events:none}
 @media(max-width:600px){.avatar-stage{width:min(88vw,460px);height:78vh}}
@@ -647,7 +650,7 @@ svg{display:block;width:100%;height:100%;overflow:visible}
  const neutralFace=svg.querySelector('#cara_ojos_abiertos_neutro');
  const smileFace=svg.querySelector('#ojos_sonrientes');
  const reduce=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
- let smiling=false,blinkTimer=0,blinkEnd=0,blinking=false;
+ let smiling=false,blinkTimer=0,blinkEnd=0;
  const clamp=(v,min,max)=>Math.max(min,Math.min(max,v));
  function toggleSmile(){smiling=!smiling;stage.classList.toggle('is-smiling',smiling);stage.setAttribute('aria-label',smiling?'Avatar sonriente. Haz clic para volver a la expresión neutra.':'Avatar neutro. Haz clic para sonreír.')}
  stage.addEventListener('click',toggleSmile);
@@ -666,15 +669,10 @@ svg{display:block;width:100%;height:100%;overflow:visible}
  stage.addEventListener('pointerleave',()=>{p1.removeAttribute('transform');p2.removeAttribute('transform')});
  function scheduleBlink(){if(reduce)return;blinkTimer=window.setTimeout(()=>{
    if(!stage.isConnected)return;
-   blinking=true;
    // La variante duplicada del SVG se usa como párpado cerrado.
-   blinkFace.style.opacity='1';
-   neutralFace.style.opacity='0';
-   smileFace.style.opacity='0';
+   stage.classList.add('is-blinking');
    blinkEnd=window.setTimeout(()=>{
-     blinking=false;blinkFace.style.opacity='0';
-     neutralFace.style.opacity=smiling?'0':'1';
-     smileFace.style.opacity=smiling?'1':'0';
+     stage.classList.remove('is-blinking');
      scheduleBlink();
    },125);
  },2500+Math.random()*3500)}
