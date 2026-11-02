@@ -14,9 +14,11 @@ svg{display:block;width:100%;height:100%;overflow:visible}
 
 /* Reveal only a localized opening in the face; keep the SVG layer order intact. */
 #CRÁNEO{opacity:0;pointer-events:none;transition:opacity .22s ease}
-#skull-peek-hole{transition:opacity .07s linear}
+#skull-peek-shape{opacity:0;transition:opacity .16s ease}
 .avatar-stage.is-hovering #CRÁNEO,
-.avatar-stage.is-hovering #skull-peek-hole{opacity:1}
+.avatar-stage.is-closing #CRÁNEO{opacity:1}
+.avatar-stage.is-hovering #skull-peek-shape,
+.avatar-stage.is-closing #skull-peek-shape{opacity:1}
 
 #cara_ojos_abiertos_neutro{opacity:1}
 #ojos_sonrientes,#cara_ojos_abiertos_neutro_copia{opacity:0;pointer-events:none}
@@ -48,11 +50,19 @@ svg{display:block;width:100%;height:100%;overflow:visible}
 <svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
 	 viewBox="0 0 630.979 739.979" style="enable-background:new 0 0 630.979 739.979;" xml:space="preserve">
 <defs>
+  <radialGradient id="skullRevealGradient" gradientUnits="objectBoundingBox"
+                  cx="50%" cy="50%" r="71%">
+    <stop offset="0%" stop-color="#000000"/>
+    <stop offset="54%" stop-color="#000000"/>
+    <stop offset="68%" stop-color="#202020"/>
+    <stop offset="84%" stop-color="#929292"/>
+    <stop offset="100%" stop-color="#ffffff"/>
+  </radialGradient>
   <mask id="avatarFaceMask" maskUnits="userSpaceOnUse" maskContentUnits="userSpaceOnUse"
         x="0" y="0" width="630.979" height="739.979" mask-type="luminance">
     <rect x="0" y="0" width="630.979" height="739.979" fill="#ffffff"/>
-    <ellipse id="skull-peek-hole" cx="458" cy="265" rx="48" ry="62"
-             fill="#000000" opacity="0"/>
+    <path id="skull-peek-shape" fill="url(#skullRevealGradient)" opacity="0"
+          d="M 315 303 C 342 303 363 330 363 365 C 363 400 342 427 315 427 C 288 427 267 400 267 365 C 267 330 288 303 315 303 Z"/>
   </mask>
 </defs>
 <g id="CRÁNEO">
@@ -670,13 +680,18 @@ svg{display:block;width:100%;height:100%;overflow:visible}
  if(ids.some(id=>!layer[id]))return;
 
  const pupils=[layer.pupila_2,layer.pupila_1];
- const peekHole=svg.querySelector('#skull-peek-hole');
- if(!peekHole)return;
+ const revealShape=svg.querySelector('#skull-peek-shape');
+ if(!revealShape)return;
  const reduce=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
  const clamp=(v,min,max)=>Math.max(min,Math.min(max,v));
- let smileTimer=0,blinkTimer=0,blinkEnd=0,raf=0;
+ let smileTimer=0,blinkTimer=0,blinkEnd=0,raf=0,revealRaf=0;
  let current=[{x:0,y:0},{x:0,y:0}];
  let target=[{x:0,y:0},{x:0,y:0}];
+ let revealCurrent={x:315,y:370};
+ let revealTarget={x:315,y:370};
+ let revealScale=0,revealScaleTarget=0,revealPhase=0;
+ let previousReveal={x:315,y:370};
+ let revealVelocity={x:0,y:0};
 
  function flashSmile(){
    clearTimeout(smileTimer);
@@ -722,29 +737,93 @@ svg{display:block;width:100%;height:100%;overflow:visible}
    requestPupilFrame();
  },{passive:true});
 
- function moveReveal(e){
+ function organicRevealPath(cx,cy,phase,speed,scale){
+   const count=18;
+   const points=[];
+   const intensity=clamp(speed/12,0,1);
+   const rx=48*scale*(1+.12*intensity);
+   const ry=62*scale*(1+.08*intensity);
+   const rotation=Math.atan2(revealVelocity.y,revealVelocity.x||.0001)*.055*intensity;
+   for(let i=0;i<count;i++){
+     const a=(Math.PI*2*i)/count;
+     const wobble=1
+       +.075*Math.sin(3*a+phase)
+       +.038*Math.sin(5*a-phase*1.35)
+       +.022*Math.sin(2*a+phase*.7);
+     const x=Math.cos(a)*rx*wobble;
+     const y=Math.sin(a)*ry*wobble;
+     points.push({
+       x:cx+x*Math.cos(rotation)-y*Math.sin(rotation),
+       y:cy+x*Math.sin(rotation)+y*Math.cos(rotation)
+     });
+   }
+   const midpoint=(a,b)=>({x:(a.x+b.x)/2,y:(a.y+b.y)/2});
+   const first=midpoint(points[points.length-1],points[0]);
+   let d='M '+first.x.toFixed(2)+' '+first.y.toFixed(2);
+   for(let i=0;i<count;i++){
+     const next=midpoint(points[i],points[(i+1)%count]);
+     d+=' Q '+points[i].x.toFixed(2)+' '+points[i].y.toFixed(2)+' '+next.x.toFixed(2)+' '+next.y.toFixed(2);
+   }
+   return d+' Z';
+ }
+ function renderReveal(){
+   revealRaf=0;
+   const ease=reduce?1:.19;
+   const dx=revealTarget.x-revealCurrent.x;
+   const dy=revealTarget.y-revealCurrent.y;
+   revealCurrent.x+=dx*ease;
+   revealCurrent.y+=dy*ease;
+   const vx=revealCurrent.x-previousReveal.x;
+   const vy=revealCurrent.y-previousReveal.y;
+   revealVelocity={x:vx,y:vy};
+   const speed=Math.hypot(vx,vy);
+   previousReveal={x:revealCurrent.x,y:revealCurrent.y};
+   revealScale+=(revealScaleTarget-revealScale)*(reduce?1:.22);
+   if(speed>.08)revealPhase+=Math.min(speed*.012,.13);
+   revealShape.setAttribute('d',organicRevealPath(
+     revealCurrent.x,revealCurrent.y,revealPhase,speed,Math.max(.001,revealScale)
+   ));
+   const moving=Math.abs(dx)>.08||Math.abs(dy)>.08||Math.abs(revealScaleTarget-revealScale)>.006;
+   if(moving){
+     revealRaf=requestAnimationFrame(renderReveal);
+   }else if(revealScaleTarget===0){
+     stage.classList.remove('is-closing');
+   }
+ }
+ function requestRevealFrame(){
+   if(!revealRaf)revealRaf=requestAnimationFrame(renderReveal);
+ }
+ function setRevealTarget(e){
    const matrix=svg.getScreenCTM();
    if(!matrix)return;
    const pt=svg.createSVGPoint();
    pt.x=e.clientX;pt.y=e.clientY;
    const p=pt.matrixTransform(matrix.inverse());
-   // The opening follows the actual pointer in SVG coordinates.
-   // Keep it inside the illustrated head area.
-   const x=clamp(p.x,55,575);
-   const y=clamp(p.y,135,640);
-   peekHole.setAttribute('cx',x.toFixed(1));
-   peekHole.setAttribute('cy',y.toFixed(1));
+   revealTarget={
+     x:clamp(p.x,55,575),
+     y:clamp(p.y,135,640)
+   };
+   requestRevealFrame();
  }
  stage.addEventListener('pointerenter',e=>{
-   moveReveal(e);
-   stage.classList.remove('is-blinking');
+   setRevealTarget(e);
+   revealCurrent={...revealTarget};
+   previousReveal={...revealCurrent};
+   revealScale=.04;
+   revealScaleTarget=1;
+   stage.classList.remove('is-blinking','is-closing');
    clearTimeout(blinkTimer);
    clearTimeout(blinkEnd);
    stage.classList.add('is-hovering');
+   revealShape.setAttribute('d',organicRevealPath(revealCurrent.x,revealCurrent.y,revealPhase,0,revealScale));
+   requestRevealFrame();
  });
- stage.addEventListener('pointermove',moveReveal,{passive:true});
+ stage.addEventListener('pointermove',setRevealTarget,{passive:true});
  stage.addEventListener('pointerleave',()=>{
    stage.classList.remove('is-hovering');
+   stage.classList.add('is-closing');
+   revealScaleTarget=0;
+   requestRevealFrame();
    scheduleBlink();
  });
 
@@ -770,6 +849,7 @@ svg{display:block;width:100%;height:100%;overflow:visible}
    clearTimeout(blinkTimer);
    clearTimeout(blinkEnd);
    if(raf)cancelAnimationFrame(raf);
+   if(revealRaf)cancelAnimationFrame(revealRaf);
  });
 })();</script>
 </body>
